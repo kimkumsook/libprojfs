@@ -42,7 +42,9 @@
 #include "fdtable.h"
 #include "projfs.h"
 
+#define FUSE_USE_VERSION 32
 #include <fuse3/fuse.h>
+#include <fuse3/fuse_lowlevel.h>
 
 // TODO: make this value configurable
 #define PROJ_WAIT_MSEC 5000
