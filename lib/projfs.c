@@ -1525,7 +1525,8 @@ static void *projfs_loop(void *data)
 	/* open lower directory file descriptor to resolve relative paths
 	 * in file ops
 	 */
-	fs->lowerdir_fd = open(fs->lowerdir, O_DIRECTORY | O_NOFOLLOW);
+	fs->lowerdir_fd = open(fs->lowerdir,
+			       O_RDONLY | O_DIRECTORY | O_NOFOLLOW);
 	if (fs->lowerdir_fd == -1) {
 		fprintf(stderr, "projfs: failed to open lowerdir: %s: %s\n",
 			fs->lowerdir, strerror(errno));
