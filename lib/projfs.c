@@ -529,16 +529,16 @@ static int project_file(const char *op, const char *path,
 			enum proj_state state)
 {
 	struct proj_state_lock state_lock;
+	struct stat st;
 	int res;
 
 	(void)op;
 
 	/* Pass O_NOFOLLOW so we receive ELOOP if path is an existing symlink,
-	 * which we want to ignore, and request a write mode so we receive
-	 * EISDIR if path is a directory.
+	 * which we want to ignore.
 	 */
 	res = acquire_proj_state_lock(&state_lock, path,
-				      O_RDWR | O_NOFOLLOW | O_NONBLOCK);
+				      O_RDONLY | O_NOFOLLOW | O_NONBLOCK);
 	if (res != 0) {
 		if (res == ELOOP)
 			return 0;
@@ -546,17 +546,24 @@ static int project_file(const char *op, const char *path,
 			return res;
 	}
 
+	if (fstat(state_lock.lock_fd, &st) == -1) {
+		res = errno;
+		goto out_release;
+	}
+	else if (!S_ISREG(st.st_mode)) {
+		if (S_ISDIR(st.st_mode))
+			res = EISDIR;
+		else
+			res = 0;
+		goto out_release;
+	}
+
 	// hydrate empty placeholder file
 	if (state_lock.state == PROJ_STATE_EMPTY) {
-		struct stat st;
-		int reset_mtime;
-
-		reset_mtime = (fstat(state_lock.lock_fd, &st) == 0);
-
 		res = project_locked_path(&state_lock, path, 0,
 					  PROJ_STATE_POPULATED);
 
-		if (res == 0 && reset_mtime) {
+		if (res == 0) {
 			struct timespec times[2];
 
 			times[0].tv_nsec = UTIME_OMIT;
@@ -572,6 +579,7 @@ static int project_file(const char *op, const char *path,
 		res = project_locked_path(&state_lock, path, 0, state);
 	}
 
+out_release:
 	release_proj_state_lock(&state_lock);
 
 	return res;
